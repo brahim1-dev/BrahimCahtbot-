@@ -1,30 +1,30 @@
 # Brahim ChatBot
 
-A lightweight AI chat application built with React and Google Gemini. Messages stream into the conversation as the model generates its response, and assistant replies support Markdown formatting.
+A lightweight AI chat app built with React, Vite, and Google Gemini. Assistant replies stream into the conversation as they are generated and render Markdown formatting such as headings, lists, and bold text.
 
 ## Features
 
-- Live, streamed responses from Gemini
-- Markdown-formatted assistant replies, including headings, lists, and bold text
-- Conversation history is included with each request
-- Responsive chat interface with clear loading and error states
-- Gemini API key kept on the server, not exposed in the browser bundle
+- Streamed Gemini responses
+- Markdown-rendered assistant messages
+- Conversation history sent with each chat request
+- Responsive chat interface with loading and error states
+- Server-side API key handling; the Gemini key is not included in the frontend bundle
 
-## Technology
+## Tech stack
 
 - React 19 and Vite
 - Google GenAI SDK (`@google/genai`)
 - Gemini `gemini-3.1-flash-lite`
-- `react-markdown` for rendering assistant responses
-- Node.js HTTP server for the private chat API
+- `react-markdown`
+- Node.js HTTP server
 
-## Requirements
+## Prerequisites
 
-- Node.js 22.9 or later (the project uses Node's `--env-file-if-exists` option)
+- Node.js 22.9 or later (`npm run server` uses Node's `--env-file-if-exists` option)
 - npm
 - A Gemini API key from [Google AI Studio](https://aistudio.google.com/apikey)
 
-## Getting started
+## Local development
 
 ### 1. Install dependencies
 
@@ -32,9 +32,9 @@ A lightweight AI chat application built with React and Google Gemini. Messages s
 npm install
 ```
 
-### 2. Configure the API key
+### 2. Configure Gemini
 
-Copy `.env.example` to `.env.local` and replace the placeholder with your Gemini API key:
+Copy `.env.example` to `.env.local`, then replace the placeholder with your Gemini API key:
 
 ```dotenv
 GEMINI_API_KEY=your_gemini_api_key
@@ -46,45 +46,45 @@ On Windows PowerShell:
 Copy-Item .env.example .env.local
 ```
 
-`.env.local` is excluded from Git. Never put the key in frontend code, commit it, or share it publicly. If a key has been exposed, revoke it in Google AI Studio and create a replacement.
+The `.env.local` file is ignored by Git. Keep the key out of frontend code, commits, screenshots, and public messages. If a key has been exposed, revoke it in Google AI Studio and create a replacement.
 
-### 3. Start the chat API
+### 3. Start the API server
 
-In a terminal, run:
+In the first terminal:
 
 ```bash
 npm run server
 ```
 
-The API listens on `http://127.0.0.1:3001` by default. You can set `API_PORT` to use a different port.
+The API listens on `127.0.0.1:3001` by default. To use a different port, set `API_PORT` before starting the server.
 
-### 4. Start the web app
+### 4. Start the frontend
 
-In a second terminal, run:
+In a second terminal:
 
 ```bash
 npm run dev
 ```
 
-Open the local URL printed by Vite (usually `http://localhost:5173`). During development, Vite forwards `/api` requests to the local API server.
+Open the URL printed by Vite, usually `http://localhost:5173`. In development, Vite forwards `/api` requests to `http://127.0.0.1:3001`.
 
-## Available commands
+## npm scripts
 
-| Command | Description |
+| Command | Purpose |
 | --- | --- |
 | `npm run dev` | Start the Vite development server |
-| `npm run server` | Start the Gemini-backed chat API |
-| `npm run build` | Create the production frontend in `dist/` |
+| `npm run server` | Start the Gemini chat API |
+| `npm run build` | Build the frontend into `dist/` |
 | `npm run preview` | Preview the production frontend build |
 | `npm run lint` | Run ESLint |
 
-## API
+## API reference
 
 ### `POST /api/chat`
 
-Accepts the conversation so far and streams the assistant response as newline-delimited JSON.
+Accepts the conversation as JSON and returns a streamed response using newline-delimited JSON (NDJSON). Each line is a separate JSON event.
 
-Request:
+Request content type: `application/json`
 
 ```json
 {
@@ -94,7 +94,9 @@ Request:
 }
 ```
 
-Stream events:
+Each message must have a `role` of `user` or `assistant` and non-empty string `content`. The request is limited to 30 messages, 8,000 characters per message, a 30,000-character assembled prompt (including role labels and separators), and a 50 KB request body. The final message must be from the user.
+
+Successful stream (`Content-Type: application/x-ndjson`):
 
 ```json
 {"type":"delta","text":"Photosynthesis "}
@@ -102,11 +104,11 @@ Stream events:
 {"type":"done"}
 ```
 
-If a request fails after streaming begins, the API sends an `error` event when possible. Before streaming begins, it returns a JSON error response with an appropriate HTTP status.
+If an error occurs before streaming starts, the API responds with a JSON error and a non-2xx HTTP status. If it occurs after streaming starts, it sends an `error` event when the connection is still writable.
 
 ### `GET /api/health`
 
-Returns `{"ok":true}` when the API server is running. This only checks server availability; it does not verify Gemini credentials or model availability.
+Returns `{"ok":true}` when the API process is running. It does not check Gemini credentials, connectivity, or model availability.
 
 ## Project structure
 
@@ -114,27 +116,29 @@ Returns `{"ok":true}` when the API server is running. This only checks server av
 api/
   server.js       Node.js API server and Gemini integration
 src/
-  App.jsx         Chat interface and streaming client
+  App.jsx         Chat UI, streamed response handling, and Markdown rendering
   index.css       Application styles
   main.jsx        React entry point
-.env.example      Safe environment-variable template
+.env.example      Environment-variable template
 vite.config.js    Vite configuration and development API proxy
 ```
 
 ## Production deployment
 
-Build the frontend with:
+Build the static frontend:
 
 ```bash
 npm run build
 ```
 
-This creates static files in `dist/`. The chat API must also run on a trusted server with `GEMINI_API_KEY` configured as a server-side secret. In production, configure your hosting provider or reverse proxy to route `/api/*` requests to the API server; the proxy in `vite.config.js` is for local development only. Do not expose the API key to the browser or publish the API server without suitable access controls and usage limits.
+The generated site is in `dist/`. The chat API must also run on a trusted server with `GEMINI_API_KEY` set as a server-side environment secret. The API currently binds to `127.0.0.1`, so place a reverse proxy on the same host to forward `/api/*` requests to it. The proxy in `vite.config.js` is for local development only.
+
+The API does not include user authentication or rate limiting. Before making it reachable from the public internet, add appropriate access controls, request limits, and abuse protection. Never expose the Gemini key to the browser.
 
 ## Troubleshooting
 
-- **The app says it cannot reach the chat API:** Confirm `npm run server` is running and listening on port `3001`.
-- **The API reports a missing key:** Confirm `.env.local` exists in the project root and contains a non-empty `GEMINI_API_KEY`.
-- **The AI service is temporarily busy or times out:** Retry after a short wait. The service or model may be temporarily unavailable.
-- **The response is not streaming:** Restart both the API server and Vite development server after code changes. Ensure the request is routed to this project's API server.
-- **Port `3001` is already in use:** Set `API_PORT` to an available port and update the `/api` proxy target in `vite.config.js` to match.
+- **Cannot reach the chat API:** Make sure `npm run server` is running and that the Vite proxy target and API port match.
+- **Missing API key:** Check that `.env.local` exists in the project root and contains a non-empty `GEMINI_API_KEY`. Restart the API server after changing the file.
+- **AI service is busy or times out:** Retry later; model availability and response times can vary.
+- **Responses do not stream:** Restart the API and frontend after code changes, and confirm `/api` requests reach this project's API server without response buffering.
+- **Port `3001` is already in use:** Choose another `API_PORT` and update the `/api` target in `vite.config.js` to the same port.
