@@ -1,5 +1,8 @@
 # Brahim ChatBot
 
+## Look Here
+- https://brahimchatbot.netlify.app/
+
 A lightweight AI chat app built with React, Vite, and Google Gemini. Assistant replies stream into the conversation as they are generated and render Markdown formatting such as headings, lists, and bold text.
 
 ## Features
